@@ -8,6 +8,8 @@ from sklearn.model_selection import train_test_split
 from keras.callbacks import ModelCheckpoint
 import argparse
 
+
+
 def load_samples(dir):
     lines = []
     with open(dir+"/driving_log.csv") as f:
@@ -20,8 +22,8 @@ def load_samples(dir):
 class SampleGenerator:
     correction = 0.2
 
-    def __init__(self, dir, samples, batch_size=16, flip=False, sides=False):
-        self.dir = dir
+    def __init__(self, path, samples, batch_size=16, flip=False, sides=False):
+        self.dir = path
         self.samples = samples
         self.batch_size = batch_size
         self.flip = flip
@@ -119,7 +121,7 @@ model = ModelBuilder.build(args.model)
 
 model.compile(optimizer='adam', loss='mse')
 
-checkpointer = ModelCheckpoint(filepath="model.hd5", verbose=1, save_best_only=True)
+checkpointer = ModelCheckpoint(filepath=args.model+".hd5", verbose=1, save_best_only=True)
 
 history = model.fit_generator(train_generator.generate(), samples_per_epoch=len(train_generator),
                               validation_data=valid_generator.generate(), nb_val_samples=len(valid_generator),
