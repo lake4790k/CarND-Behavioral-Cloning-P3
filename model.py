@@ -1,13 +1,12 @@
 import csv
 import cv2
 import numpy as np
-from keras.layers import Flatten, Dense, Lambda, Cropping2D, Conv2D
+from keras.layers import Flatten, Dense, Lambda, Cropping2D, Conv2D, Dropout
 from keras.models import Sequential
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 from keras.callbacks import ModelCheckpoint
 import argparse
-
 
 
 def load_samples(dir):
@@ -69,32 +68,40 @@ class SampleGenerator:
 
 class ModelBuilder:
     @staticmethod
-    def build(model):
+    def build(args):
         return { "basic": ModelBuilder.basic_model,
-                 "nvidia": ModelBuilder.nvidia_model }.get(model)()
+                 "nvidia": ModelBuilder.nvidia_model }.get(args.model)(dropout=args.dropout)
 
     @staticmethod
-    def basic_model():
+    def basic_model(dropout=0):
         print("building basic model")
         model = Sequential()
         model.add(Cropping2D(cropping=((70,25), (0,0)), input_shape=(160,320,3)))
         model.add(Lambda(lambda x: (x / 255.0) - 0.5))
         model.add(Flatten())
         model.add(Dense(100))
+        if dropout>0: model.add(Dropout(dropout))
         model.add(Dense(1))
         return model
 
     @staticmethod
-    def nvidia_model():
+    def nvidia_model(dropout=0):
         print("building nvidia model")
         model = Sequential()
         model.add(Cropping2D(cropping=((70,25), (0,0)), input_shape=(160,320,3)))
         model.add(Lambda(lambda x: (x / 255.0) - 0.5))
+
         model.add(Conv2D(24,5,5, activation='relu', subsample=(2,2)))
+        if dropout>0: model.add(Dropout(dropout))
         model.add(Conv2D(36,5,5, activation='relu', subsample=(2,2)))
+        if dropout>0: model.add(Dropout(dropout))
         model.add(Conv2D(48,5,5, activation='relu', subsample=(2,2)))
+        if dropout>0: model.add(Dropout(dropout))
         model.add(Conv2D(64,3,3, activation='relu'))
+        if dropout>0: model.add(Dropout(dropout))
         model.add(Conv2D(64,3,3, activation='relu'))
+        if dropout>0: model.add(Dropout(dropout))
+
         model.add(Flatten())
         model.add(Dense(100))
         model.add(Dense(50))
@@ -106,6 +113,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('dir', type=str)
 parser.add_argument('-epochs', type=int, default=100)
 parser.add_argument('-model', type=str, default="basic")
+parser.add_argument('-dropout', default=0, type=float)
 parser.add_argument('--flip', default=False, action='store_true')
 parser.add_argument('--sides', default=False, action='store_true')
 args = parser.parse_args()
@@ -116,8 +124,7 @@ train_samples, validation_samples = train_test_split(samples, test_size=0.25)
 train_generator = SampleGenerator(args.dir, train_samples, flip=args.flip, sides=args.sides)
 valid_generator = SampleGenerator(args.dir, validation_samples, flip=args.flip, sides=args.sides)
 
-
-model = ModelBuilder.build(args.model)
+model = ModelBuilder.build(args)
 
 model.compile(optimizer='adam', loss='mse')
 
