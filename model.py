@@ -69,8 +69,14 @@ class SampleGenerator:
 class ModelBuilder:
     @staticmethod
     def build(args):
-        return { "basic": ModelBuilder.basic_model,
+        model = { "basic": ModelBuilder.basic_model,
                  "nvidia": ModelBuilder.nvidia_model }.get(args.model)(dropout=args.dropout)
+
+        if args.resume:
+            file = args.model+".hd5"
+            model.load_weights(file)
+            print("loaded "+file)
+        return model
 
     @staticmethod
     def basic_model(dropout=0):
@@ -119,7 +125,9 @@ if __name__ == "__main__":
     parser.add_argument('-split', default=0.1, type=float)
     parser.add_argument('--flip', default=False, action='store_true')
     parser.add_argument('--sides', default=False, action='store_true')
+    parser.add_argument('--resume', default=False, action='store_true')
     args = parser.parse_args()
+
 
     samples = load_samples(args.dir)
     train_samples, validation_samples = train_test_split(samples, test_size=args.split)
