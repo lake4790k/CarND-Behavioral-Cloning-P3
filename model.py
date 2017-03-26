@@ -37,7 +37,7 @@ class SampleGenerator:
     def generate(self):
         num_samples = len(self.samples)
         while True:
-            shuffle(samples)
+            shuffle(self.samples)
             for offset in range(0, num_samples, self.batch_size):
                 batch_samples = self.samples[offset:offset+self.batch_size]
                 images = []
@@ -109,27 +109,30 @@ class ModelBuilder:
         model.add(Dense(1))
         return model
 
-parser = argparse.ArgumentParser()
-parser.add_argument('dir', type=str)
-parser.add_argument('-epochs', type=int, default=100)
-parser.add_argument('-model', type=str, default="basic")
-parser.add_argument('-dropout', default=0, type=float)
-parser.add_argument('--flip', default=False, action='store_true')
-parser.add_argument('--sides', default=False, action='store_true')
-args = parser.parse_args()
+if __name__ == "__main__":
 
-samples = load_samples(args.dir)
-train_samples, validation_samples = train_test_split(samples, test_size=0.25)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dir', type=str)
+    parser.add_argument('-epochs', type=int, default=100)
+    parser.add_argument('-model', type=str, default="basic")
+    parser.add_argument('-dropout', default=0, type=float)
+    parser.add_argument('-split', default=0.1, type=float)
+    parser.add_argument('--flip', default=False, action='store_true')
+    parser.add_argument('--sides', default=False, action='store_true')
+    args = parser.parse_args()
 
-train_generator = SampleGenerator(args.dir, train_samples, flip=args.flip, sides=args.sides)
-valid_generator = SampleGenerator(args.dir, validation_samples, flip=args.flip, sides=args.sides)
+    samples = load_samples(args.dir)
+    train_samples, validation_samples = train_test_split(samples, test_size=args.split)
 
-model = ModelBuilder.build(args)
+    train_generator = SampleGenerator(args.dir, train_samples, flip=args.flip, sides=args.sides)
+    valid_generator = SampleGenerator(args.dir, validation_samples, flip=args.flip, sides=args.sides)
 
-model.compile(optimizer='adam', loss='mse')
+    model = ModelBuilder.build(args)
 
-checkpointer = ModelCheckpoint(filepath=args.model+".hd5", verbose=1, save_best_only=True)
+    model.compile(optimizer='adam', loss='mse')
 
-history = model.fit_generator(train_generator.generate(), samples_per_epoch=len(train_generator),
-                              validation_data=valid_generator.generate(), nb_val_samples=len(valid_generator),
-                              nb_epoch=args.epochs, callbacks=[checkpointer])
+    checkpointer = ModelCheckpoint(filepath=args.model+".hd5", verbose=1, save_best_only=True)
+
+    history = model.fit_generator(train_generator.generate(), samples_per_epoch=len(train_generator),
+                                  validation_data=valid_generator.generate(), nb_val_samples=len(valid_generator),
+                                  nb_epoch=args.epochs, callbacks=[checkpointer])
