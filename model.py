@@ -19,7 +19,7 @@ def load_samples(dir):
 
 
 class SampleGenerator:
-    correction = 0.2
+    correction = 0.25
 
     def __init__(self, path, samples, batch_size=16, flip=False, sides=False):
         self.dir = path
@@ -34,12 +34,16 @@ class SampleGenerator:
         if self.sides: l *= 3
         return l
 
+    def resample(self):
+        return self.samples
+
     def generate(self):
-        num_samples = len(self.samples)
         while True:
-            shuffle(self.samples)
+            samples = self.resample()
+            num_samples = len(samples)
+            shuffle(samples)
             for offset in range(0, num_samples, self.batch_size):
-                batch_samples = self.samples[offset:offset+self.batch_size]
+                batch_samples = samples[offset:offset+self.batch_size]
                 images = []
                 angles = []
                 for batch_sample in batch_samples:
@@ -64,6 +68,38 @@ class SampleGenerator:
                 X = np.array(images)
                 y = np.array(angles)
                 yield shuffle(X, y)
+
+
+class StratifiedSampleGenerator(SampleGenerator):
+    num_bins = 10
+    samples_per_bin = 500
+
+    def __init__(self, path, samples, batch_size=16, flip=False, sides=False):
+        SampleGenerator.__init__(self, path, samples, batch_size, filp, sides)
+
+    def __len__(self):
+        l = StratifiedSampleGenerator.samples_per_bin * StratifiedSampleGenerator.num_bins
+        if self.flip: l *= 2
+        if self.sides: l *= 3
+        return l
+
+    def resample(self):
+        angles = []
+        for sample in self.samples:
+            angle = float(sample[3])
+            angles.append(angle)
+
+        _, bins = np.histogram(angles, bins=StratifiedSampleGenerator.num_bins)
+        in_bin = np.digitize(angles, bins, right=True)
+
+        stratified_samples = []
+        for bin1 in range(len(in_bin)):
+            bin_idx = np.where(in_bin==bin1)[0]
+            bin_idx = resample(bin_idx, n_samples=StratifiedSampleGenerator.samples_per_bin)
+            stratified_samples.extend(self.samples[bin_idx])
+
+        return stratified_samples
+
 
 
 class ModelBuilder:
