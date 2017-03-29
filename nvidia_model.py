@@ -73,7 +73,7 @@ class StratifiedSampleGenerator(SampleGenerator):
 
     def __init__(self, path, samples, correction=0.25, batch_size=16, flip=False, sides=False):
         SampleGenerator.__init__(self, path, samples, correction, batch_size, flip, sides)
-        self.target_num = (500 * np.array([0, .1, 1, 1, 1, 1, 1, 1, 1, 1, .1, .1])).astype(np.int32)
+        self.target_num = (500 * np.array([0, .1, .1, 1, 1, 1, 1, 1, 1, .1, .1, .1])).astype(np.int32)
         # target_num = (500 *np.ones(12)).astype(np.int32)
 
     def __len__(self):
