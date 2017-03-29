@@ -6,7 +6,6 @@ from keras.models import Sequential
 from sklearn.utils import shuffle, resample
 from sklearn.model_selection import train_test_split
 from keras.callbacks import ModelCheckpoint
-from keras.optimizers import Adam
 import argparse
 
 def load_samples(dir):
@@ -81,40 +80,53 @@ class StratifiedSampleGenerator(SampleGenerator):
         if self.sides: l *= 3
         return l
 
-    def resample(self):
+    def sample_angles(self, samples):
         angles = []
-        for sample in self.samples:
+        for sample in samples:
             angle = float(sample[3])
             angles.append(angle)
+        return angles
 
-        _, bins = np.histogram(angles, bins=StratifiedSampleGenerator.num_bins)
-        in_bin = np.digitize(angles, bins, right=True)
+    def resample(self):
+        angles = self.sample_angles(self.samples)
 
+        counts, bins = np.histogram(angles, bins=StratifiedSampleGenerator.num_bins)
+        print("before stratifing", counts)
+
+        in_bin = np.digitize(angles, bins)
         stratified_samples = []
-        for bin1 in range(len(in_bin)):
-            bin_idx = np.where(in_bin==bin1)[0]
-            bin_idx = resample(bin_idx, n_samples=StratifiedSampleGenerator.samples_per_bin)
-            stratified_samples.extend(self.samples[bin_idx])
+        target_num = (500 * np.array([0, .1, .2, .2, 1, 1, 1, 1, .2, .2, .1, .1])).astype(np.int32)
+        # target_num = (500 *np.ones(12)).astype(np.int32)
+        for bin1 in range(1, len(bins) + 1):
+            bin_idx = np.where(in_bin == bin1)[0]
+            if len(bin_idx) == 0: continue
+
+            bin_idx = resample(bin_idx, n_samples=target_num[bin1])
+            for idx1 in bin_idx:
+                stratified_samples.append(self.samples[idx1])
+
+        angles = self.sample_angles(stratified_samples)
+        counts, bins = np.histogram(angles, bins=StratifiedSampleGenerator.num_bins)
+        print("after stratifing", counts)
 
         return stratified_samples
 
 
-
-def nvidia_model(dropout=0):
+def nvidia_model(opts):
     model = Sequential()
     model.add(Cropping2D(cropping=((70,25), (0,0)), input_shape=(160,320,3)))
     model.add(Lambda(lambda x: (x / 255.0) - 0.5))
 
     model.add(Conv2D(24,5,5, activation='relu', subsample=(2,2)))
-    if dropout>0: model.add(Dropout(dropout))
+    if opts.dropout>0: model.add(Dropout(opts.dropout))
     model.add(Conv2D(36,5,5, activation='relu', subsample=(2,2)))
-    if dropout>0: model.add(Dropout(dropout))
+    if opts.dropout>0: model.add(Dropout(opts.dropout))
     model.add(Conv2D(48,5,5, activation='relu', subsample=(2,2)))
-    if dropout>0: model.add(Dropout(dropout))
+    if opts.dropout>0: model.add(Dropout(opts.dropout))
     model.add(Conv2D(64,3,3, activation='relu'))
-    if dropout>0: model.add(Dropout(dropout))
+    if opts.dropout>0: model.add(Dropout(opts.dropout))
     model.add(Conv2D(64,3,3, activation='relu'))
-    if dropout>0: model.add(Dropout(dropout))
+    if opts.dropout>0: model.add(Dropout(opts.dropout))
 
     model.add(Flatten())
     model.add(Dense(100))
@@ -131,7 +143,6 @@ if __name__ == "__main__":
     parser.add_argument('-correction', type=float, default=0.25)
     parser.add_argument('-batch', type=int, default=16)
     parser.add_argument('-resample', type=int, default=0)
-    parser.add_argument('-lr', type=float, default=0.001)
     parser.add_argument('-dropout', default=0, type=float)
     parser.add_argument('-split', default=0.2, type=float)
     parser.add_argument('--flip', default=False, action='store_true')
@@ -142,11 +153,10 @@ if __name__ == "__main__":
 
     samples = load_samples(args.dir)
 
-    model = nvidia_model(args.dropout)
-    adam = Adam(lr=args.lr)
-    model.compile(optimizer=adam, loss='mse')
+    model = nvidia_model(args)
+    model.compile(optimizer='adam', loss='mse')
 
-    checkpointer = ModelCheckpoint(filepath=args.model+".hd5", verbose=1, save_best_only=True)
+    checkpointer = ModelCheckpoint(filepath="nvidia.hd5", verbose=1, save_best_only=True)
 
     train_samples, validation_samples = train_test_split(samples, test_size=args.split)
     if args.stratify:
