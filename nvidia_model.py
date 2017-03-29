@@ -73,9 +73,11 @@ class StratifiedSampleGenerator(SampleGenerator):
 
     def __init__(self, path, samples, correction=0.25, batch_size=16, flip=False, sides=False):
         SampleGenerator.__init__(self, path, samples, correction, batch_size, flip, sides)
+        self.target_num = (500 * np.array([0, .1, .2, .2, 1, 1, 1, 1, .2, .2, .1, .1])).astype(np.int32)
+        # target_num = (500 *np.ones(12)).astype(np.int32)
 
     def __len__(self):
-        l = StratifiedSampleGenerator.samples_per_bin * StratifiedSampleGenerator.num_bins
+        l = self.target_num.sum()
         if self.flip: l *= 2
         if self.sides: l *= 3
         return l
@@ -95,13 +97,11 @@ class StratifiedSampleGenerator(SampleGenerator):
 
         in_bin = np.digitize(angles, bins)
         stratified_samples = []
-        target_num = (500 * np.array([0, .1, .2, .2, 1, 1, 1, 1, .2, .2, .1, .1])).astype(np.int32)
-        # target_num = (500 *np.ones(12)).astype(np.int32)
         for bin1 in range(1, len(bins) + 1):
             bin_idx = np.where(in_bin == bin1)[0]
             if len(bin_idx) == 0: continue
 
-            bin_idx = resample(bin_idx, n_samples=target_num[bin1])
+            bin_idx = resample(bin_idx, n_samples=self.target_num[bin1])
             for idx1 in bin_idx:
                 stratified_samples.append(self.samples[idx1])
 
